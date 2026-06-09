@@ -132,6 +132,18 @@ async function copyTemplate(template_path: vscode.Uri, target_path: vscode.Uri, 
 	}
 }
 
+function isFolderOpenAnywhere(target_folder: vscode.Uri): boolean {
+	const workspaceFolders = vscode.workspace.workspaceFolders;
+	const targetStr = target_folder.toString();
+	const targetStrSlashed = targetStr.endsWith('/') ? targetStr : `${targetStr}/`;
+	return (workspaceFolders !== undefined) && workspaceFolders.some(folder => {
+		const folderStr = folder.toString();
+		const folderStrSlashed = targetStr.endsWith('/') ? folderStr : `${folderStr}/`;
+
+		return targetStrSlashed === folderStrSlashed || targetStrSlashed.startsWith(folderStrSlashed);
+	});
+}
+
 async function createProject(template_path: vscode.Uri) {
 	const prjName = await vscode.window.showInputBox({
 		prompt: "Project Name",
@@ -193,7 +205,25 @@ async function createProject(template_path: vscode.Uri) {
 	// All prompts succeeded. Copy template and replace placeholders
 
 	await copyTemplate(template_path, realPrjPath, { prjName: prjName });
+
+	if (!isFolderOpenAnywhere(realPrjPath)) {
+		const shouldOpenFolder =await vscode.window.showInformationMessage("Open the project folder in this workspace?", {modal: true}, "Yes", "No");
+		if (shouldOpenFolder === "Yes") {
+			const workspaceFolders = vscode.workspace.workspaceFolders;
+			if (!workspaceFolders || workspaceFolders.length === 0) {
+				await vscode.commands.executeCommand("vscode.openFolder", realPrjPath);
+			} else {
+				vscode.workspace.updateWorkspaceFolders(
+					workspaceFolders.length,
+					null,
+					{uri: realPrjPath}
+				);
+			}
+		}
+	}
+
 }
+
 
 
 // This method is called when your extension is activated
