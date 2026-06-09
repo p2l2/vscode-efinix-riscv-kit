@@ -20,10 +20,36 @@
   "contributes": {
     "commands": [
       {
-        "command": "efinix-vscode-ext.helloWorld",
-        "title": "Hello World"
+        "command": "efinix-vscode-ext.validate",
+        "title": "efinixRiscvKit: Validate Configuration"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "efinixRiscvKit",
+      "type": "object",
+      "properties": {
+        "efinixRiscvKit.efinityPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the installation directory of the Efinity IDE. Must be configured",
+          "editPresentation": "singlelineText",
+          "properties": {
+            "format": "file-system-path"
+          }
+        },
+        "efinixRiscvKit.efinityToolchainPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the compiler toolchain used for efinity. Must be configured",
+          "format": "file-system-path"
+        },
+        "efinixRiscvKit.openocdPath": {
+          "type": "string",
+          "default": "openocd",
+          "description": "Path to the openocd executable to be used. Defaults to openocd on the path"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "yarn run package",
@@ -44,15 +70,16 @@
     "marus25.cortex-debug"
   ],
   "devDependencies": {
-    "@types/vscode": "^1.120.0",
     "@types/mocha": "^10.0.10",
-    "@types/node": "22.x",
-    "typescript-eslint": "^8.56.1",
-    "eslint": "^9.39.3",
+    "@types/node": "^25.9.2",
+    "@types/vscode": "^1.120.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.27.3",
+    "eslint": "^9.39.3",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.9.3",
-    "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
-  }
+    "typescript-eslint": "^8.56.1"
+  },
+  "dependencies": {}
 }
