@@ -1,5 +1,5 @@
 {
-  "name": "efinix-vscode-ext",
+  "name": "efinix-riscv-kit",
   "displayName": "Efinix RISC-V Devkit",
   "description": "Provides development tools for the RISC-V cores on Efinix FPGAs",
   "version": "0.0.1",
@@ -22,6 +22,10 @@
       {
         "command": "efinix-vscode-ext.validate",
         "title": "efinixRiscvKit: Validate Configuration"
+      },
+      {
+        "command": "efinix-vscode-ext.createStandaloneProject",
+        "title": "efinixRiscvKit: Create Standalone C++ Project"
       }
     ],
     "configuration": {
