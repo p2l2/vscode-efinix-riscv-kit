@@ -3,6 +3,7 @@
   "displayName": "Efinix RISC-V Devkit",
   "description": "Provides development tools for the RISC-V cores on Efinix FPGAs",
   "version": "0.0.1",
+  "repository": "https://github.com/p2l2/vscode-efinix-riscv-kit",
   "engines": {
     "vscode": "^1.120.0"
   },
