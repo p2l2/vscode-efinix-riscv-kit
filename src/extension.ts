@@ -7,6 +7,10 @@ import path from 'path';
 import * as utils from './utils';
 import { MultiStepInput, InputStep } from './multiStepInput';
 
+// globalState key under which the last successfully used BSP path is stored, so
+// it can be offered as a grayed-out default in future project-creation wizards.
+const LAST_BSP_KEY = "lastBspPath";
+
 
 // Validates a directory path setting. Returns an error string describing the
 // problem, or null if the path is valid.
@@ -255,7 +259,7 @@ async function validateExistingDir(value: string): Promise<string | undefined> {
 
 // Runs the guided multi-step wizard, returning the collected configuration or
 // undefined if the user cancelled at any step.
-async function collectProjectConfig(): Promise<ProjectConfig | undefined> {
+async function collectProjectConfig(lastBsp?: string): Promise<ProjectConfig | undefined> {
 	const title = "Create Standalone Project";
 	const totalSteps = 4;
 	const state: Partial<ProjectConfig> = { createNewDir: true };
@@ -306,25 +310,30 @@ async function collectProjectConfig(): Promise<ProjectConfig | undefined> {
 	};
 
 	const inputBspPath: InputStep = async input => {
+		// An empty field falls back to the last-used BSP (shown grayed out as the
+		// placeholder), so a returning user can just press Enter to reuse it.
+		const resolveBsp = (value: string) =>
+			value.trim().length === 0 && lastBsp ? lastBsp : value;
 		const value = await input.showInputBox({
 			title, step: 4, totalSteps,
 			value: state.bspPath ? state.bspPath.fsPath : '',
 			prompt: "Efinix BSP directory",
-			placeholder: "/path/to/efinix/bsp",
+			placeholder: lastBsp ?? "/path/to/efinix/bsp",
 			buttons: [browseButton],
 			validate: async value => {
-				const dirError = await validateExistingDir(value);
+				const target = resolveBsp(value);
+				const dirError = await validateExistingDir(target);
 				if (dirError) {
 					return dirError;
 				}
-				if (!await isEfinixBSP(vscode.Uri.file(value))) {
+				if (!await isEfinixBSP(vscode.Uri.file(target))) {
 					return "Not a valid Efinix BSP directory";
 				}
 				return undefined;
 			},
 			onButton: async () => pickFolder("Select Efinix BSP Directory"),
 		});
-		state.bspPath = vscode.Uri.file(value);
+		state.bspPath = vscode.Uri.file(resolveBsp(value));
 	};
 
 	await MultiStepInput.run(inputName);
@@ -340,8 +349,9 @@ async function collectProjectConfig(): Promise<ProjectConfig | undefined> {
 	};
 }
 
-async function createProject(template_path: vscode.Uri) {
-	const config = await collectProjectConfig();
+async function createProject(template_path: vscode.Uri, store: vscode.Memento) {
+	const lastBsp = store.get<string>(LAST_BSP_KEY);
+	const config = await collectProjectConfig(lastBsp);
 	if (!config) {
 		utils.showInfo("Project creation cancelled");
 		return;
@@ -373,6 +383,9 @@ async function createProject(template_path: vscode.Uri) {
 		toolchainPath: extConfig.get<string>('efinityToolchainPath') ?? "",
 		efinityPath: extConfig.get<string>('efinityPath') ?? "",
 	});
+
+	// Remember the BSP so the next run can offer it as a grayed-out default.
+	await store.update(LAST_BSP_KEY, config.bspPath.fsPath);
 
 	if (!isFolderOpenAnywhere(realPrjPath)) {
 		const shouldOpenFolder = await vscode.window.showInformationMessage("Open the project folder in this workspace?", { modal: true }, "Yes", "No");
@@ -419,7 +432,7 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		await createProject(vscode.Uri.joinPath(context.extensionUri, "resources", "project_template_standalone"));
+		await createProject(vscode.Uri.joinPath(context.extensionUri, "resources", "project_template_standalone"), context.globalState);
 	});
 
 	context.subscriptions.push(validateCmd);
