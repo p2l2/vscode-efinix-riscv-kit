@@ -247,11 +247,33 @@ async function pickFolder(openLabel: string): Promise<string | undefined> {
 	return picked && picked.length > 0 ? picked[0].fsPath : undefined;
 }
 
-async function validateExistingDir(value: string): Promise<string | undefined> {
+// Returns the directory containing the opened .code-workspace file, or undefined
+// when the window isn't backed by a saved workspace file (single-folder window,
+// no folder open, or an unsaved/untitled workspace).
+function workspaceFileDir(): vscode.Uri | undefined {
+	const wsFile = vscode.workspace.workspaceFile;
+	if (wsFile && wsFile.scheme === 'file') {
+		return vscode.Uri.joinPath(wsFile, '..');
+	}
+	return undefined;
+}
+
+// Resolves a user-entered path to an absolute Uri. Relative paths are resolved
+// against `baseDir` (the .code-workspace directory) when one is available, so a
+// workspace bundling several projects can be referenced with paths like
+// './standalone/'.
+function resolvePath(value: string, baseDir?: vscode.Uri): vscode.Uri {
+	if (!path.isAbsolute(value) && baseDir) {
+		return vscode.Uri.joinPath(baseDir, value);
+	}
+	return vscode.Uri.file(value);
+}
+
+async function validateExistingDir(value: string, baseDir?: vscode.Uri): Promise<string | undefined> {
 	if (!value || value.trim().length === 0) {
 		return "Directory cannot be empty";
 	}
-	if (!await utils.isDirectory(vscode.Uri.file(value))) {
+	if (!await utils.isDirectory(resolvePath(value, baseDir))) {
 		return "Path does not exist or is not a directory";
 	}
 	return undefined;
@@ -263,6 +285,10 @@ async function collectProjectConfig(lastBsp?: string): Promise<ProjectConfig | u
 	const title = "Create Standalone Project";
 	const totalSteps = 4;
 	const state: Partial<ProjectConfig> = { createNewDir: true };
+
+	// When opened from a .code-workspace file, default the base directory to that
+	// file's folder and resolve relative paths against it.
+	const wsDir = workspaceFileDir();
 
 	const inputName: InputStep = async input => {
 		state.name = await input.showInputBox({
@@ -278,14 +304,14 @@ async function collectProjectConfig(lastBsp?: string): Promise<ProjectConfig | u
 	const inputBasePath: InputStep = async input => {
 		const value = await input.showInputBox({
 			title, step: 2, totalSteps,
-			value: state.basePath ? state.basePath.fsPath : '',
+			value: state.basePath ? state.basePath.fsPath : (wsDir?.fsPath ?? ''),
 			prompt: "Project base directory",
 			placeholder: "/path/to/projects",
 			buttons: [browseButton],
-			validate: validateExistingDir,
+			validate: value => validateExistingDir(value, wsDir),
 			onButton: async () => pickFolder("Select Project Base Directory"),
 		});
-		state.basePath = vscode.Uri.file(value);
+		state.basePath = resolvePath(value, wsDir);
 		return pickCreateNewDir;
 	};
 
@@ -322,18 +348,18 @@ async function collectProjectConfig(lastBsp?: string): Promise<ProjectConfig | u
 			buttons: [browseButton],
 			validate: async value => {
 				const target = resolveBsp(value);
-				const dirError = await validateExistingDir(target);
+				const dirError = await validateExistingDir(target, wsDir);
 				if (dirError) {
 					return dirError;
 				}
-				if (!await isEfinixBSP(vscode.Uri.file(target))) {
+				if (!await isEfinixBSP(resolvePath(target, wsDir))) {
 					return "Not a valid Efinix BSP directory";
 				}
 				return undefined;
 			},
 			onButton: async () => pickFolder("Select Efinix BSP Directory"),
 		});
-		state.bspPath = vscode.Uri.file(resolveBsp(value));
+		state.bspPath = resolvePath(resolveBsp(value), wsDir);
 	};
 
 	await MultiStepInput.run(inputName);

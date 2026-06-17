@@ -13,8 +13,8 @@
             "executable": "${command:cmake.launchTargetPath}",
             "servertype": "openocd",
 
-            "serverpath": "${config:efinity.install_dir}/openocd/bin/openocd",
-            "gdbPath": "${config:efinity.install_dir}/toolchain/bin/riscv-none-elf-gdb",
+            "serverpath": "${config:efinityRiscvKit.openocdPath}",
+            "gdbPath": "${config:efinityRiscvKit.efinityToolchainPath}/riscv-none-elf-gdb",
 
             "numberOfProcessors": 4,
 
@@ -50,7 +50,7 @@
             "servertype": "external",
             "gdbTarget": "localhost:3333",
 
-            "gdbPath": "${config:efinity.install_dir}/toolchain/bin/riscv-none-elf-gdb",
+            "gdbPath": "${config:efinityRiscvKit.efinityToolchainPath}/riscv-none-elf-gdb",
 
             "runToEntryPoint": "",
             "internalConsoleOptions": "openOnSessionStart",
@@ -77,7 +77,7 @@
             "servertype": "external",
             "gdbTarget": "localhost:3333",
 
-            "gdbPath": "${config:efinity.install_dir}/toolchain/bin/riscv-none-elf-gdb",
+            "gdbPath": "${config:efinityRiscvKit.efinityToolchainPath}/riscv-none-elf-gdb",
 
             "internalConsoleOptions": "openOnSessionStart",
 
