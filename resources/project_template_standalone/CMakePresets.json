@@ -1,0 +1,34 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 25,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "generator": "Unix Makefiles",
+            "toolchainFile": "${sourceDir}/cmake/risc-efinix.cmake"
+        },
+        {
+            "name": "debug-base",
+            "hidden": true,
+            "inherits": "base",
+            "binaryDir": "${sourceDir}/debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "release-base",
+            "hidden": true,
+            "inherits": "base",
+            "binaryDir": "${sourceDir}/release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        }
+    ]
+}

@@ -1,0 +1,10 @@
+CompileFlags:
+  QueryDriver:
+    - /opt/efinity-riscv-ide/toolchain/bin/riscv-none-elf-gcc
+    - /opt/efinity-riscv-ide/toolchain/bin/riscv-none-elf-g++
+
+  Add: [
+      "-target", "riscv32-unknown-elf", # Or riscv64-unknown-elf depending on your MCU
+      "-march=rv32imac",                # Match your specific RISC-V extension set
+      "-mabi=ilp32"                     # Match your ABI (e.g., ilp32, lp64)
+    ]
