@@ -4,9 +4,11 @@ Development tools for the RISC-V (Sapphire SoC) cores on Efinix FPGAs. It scaffo
 
 ## Requirements
 
-- The [Efinity IDE](https://www.efinixinc.com/products-efinity.html), including its bundled RISC-V GCC toolchain and OpenOCD. This extension drives that toolchain; it does not install one.
-- An Efinix RISC-V BSP (Sapphire SoC board support package) for your design.
-- The CMake Tools and Cortex-Debug extensions, installed automatically as dependencies.
+- The [Efinity](https://www.efinixinc.com/products-efinity.html) Software
+    - Required to support co-debugging
+- The [Efinity RISC-V IDE](https://www.efinixinc.com/products-efinity-riscv-ide.html)
+    - Alternatively, an X-Pack RV32 toolchain and an openocd installation, that supports VexRiscV
+- The Efinix RISC-V BSP (Sapphire SoC board support package) for your design.
 
 ## Getting Started
 
@@ -20,15 +22,21 @@ Development tools for the RISC-V (Sapphire SoC) cores on Efinix FPGAs. It scaffo
 
 ## Features
 
-`efinixRiscvKit: Create Standalone C++ Project` — a wizard that prompts for a project name, base directory, and a (validated) Efinix BSP, then scaffolds a complete project: CMake presets, a Makefile, linker scripts, and `.vscode` build/debug configs, all pre-filled with your toolchain paths and BSP. Builds with CMake Tools or `make`, and supports both direct OpenOCD debugging and Efinity co-debugging. The last-used BSP is remembered as the default.
+### Create Standalon C++ Project
 
-`efinixRiscvKit: Validate Configuration` — checks that the Efinity, toolchain, and OpenOCD paths are set and valid.
+Run the command `efinixRiscvKit: Create Standalone C++ Project` from the command palette (Ctrl + P) to launch a wizard and creates a new Standalone C++ (or C) project for Efinix Sapphire SoC.
+
+The generated project is based on an included [template](resources/project_template_standalone/) and contains the following features:
+
+- Builds using CMake
+- Includes VSCode Launch configurations for debugging standalone and via Efinix co-debugging
+- Includes a Makefile for driving tasks directly from the commandline or editors other than VSCode
 
 ## License
 
-Two licenses, split by what the code is:
+This project uses different licenses for different parts.
 
-- The extension itself (`src/`) is under the Mozilla Public License 2.0 ([LICENSE_MPL](LICENSE_MPL)) — a file-level copyleft. If you distribute a modified version, your changes to the original MPL files must stay MPL (or a compatible license like GPL 2.0+) with copyright notices intact; new files you add can be any license.
-- The project template and anything the wizard generates (`resources/` and the files written into your project) are under the Zero-Clause BSD license ([LICENSE_RESOURCES](LICENSE_RESOURCES)) — effectively public-domain, with no attribution or copyleft obligations.
+- The extension itself (`src/`) is licensed under the Mozilla Public License 2.0 ([LICENSE_MPL](LICENSE_MPL)).
+- The project template (`resources/` and any generated files) are licensed under the Zero-Clause BSD license ([LICENSE_RESOURCES](LICENSE_RESOURCES)).
 
-So the scaffolding tooling is copyleft, but the code it scaffolds for you has no strings attached. See [LICENSE.md](LICENSE.md) for the full summary.
+See [LICENSE.md](LICENSE.md) for the full summary.
