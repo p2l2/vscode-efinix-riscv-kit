@@ -1,0 +1,90 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // Debug the Efinix RISC-V core directly (no co-debugging)
+            "name": "Debug Efinix RISC-V (Openocd)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "executable": "${command:cmake.launchTargetPath}",
+            "servertype": "openocd",
+
+            "serverpath": "${config:efinity.install_dir}/openocd/bin/openocd",
+            "gdbPath": "${config:efinity.install_dir}/toolchain/bin/riscv-none-elf-gdb",
+
+            "numberOfProcessors": 4,
+
+            "configFiles": [
+                "${config:bsp_dir}/bsp/efinix/EfxSapphireSoc/openocd/ftdi_ti.cfg",
+                "${config:bsp_dir}/bsp/efinix/EfxSapphireSoc/openocd/debug_ti.cfg"
+            ],
+
+            "runToEntryPoint": "",
+            "internalConsoleOptions": "openOnSessionStart",
+
+            "openOCDLaunchCommands": [
+                "init",
+                "halt"
+            ],
+
+            "overrideLaunchCommands": [
+                "monitor reset halt",
+                "load",
+                "monitor halt",
+                "b main",
+                "set $pc=_start"
+            ]
+        },
+        {
+            // Debug the Efinix RISC-V core with co-debugging.
+            // Launch this task first, then you can attach the Efinity debugger
+            "name": "Debug Efinix RISC-V (co-debug daemon, load)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "executable": "${command:cmake.launchTargetPath}",
+            "servertype": "external",
+            "gdbTarget": "localhost:3333",
+
+            "gdbPath": "${config:efinity.install_dir}/toolchain/bin/riscv-none-elf-gdb",
+
+            "runToEntryPoint": "",
+            "internalConsoleOptions": "openOnSessionStart",
+            
+            "preLaunchTask": "efinix: Co-debug Register",
+            "postDebugTask": "efinix: Co-debug Deregister",
+
+            "overrideLaunchCommands": [
+                "monitor reset halt",
+                "load",
+                "monitor halt",
+                "b main",
+                "set $pc=_start"
+            ]
+        },
+        {
+            // Attach a GDB to the Efinix RISC-V core with co-debugging, but does not flash the device.
+            // Launch this task first, then you can attach the Efinity debugger
+            "name": "Attach Efinix RISC-V (co-debug daemon)",
+            "type": "cortex-debug",
+            "request": "attach",
+            "cwd": "${workspaceFolder}",
+            "executable": "${command:cmake.launchTargetPath}",
+            "servertype": "external",
+            "gdbTarget": "localhost:3333",
+
+            "gdbPath": "${config:efinity.install_dir}/toolchain/bin/riscv-none-elf-gdb",
+
+            "internalConsoleOptions": "openOnSessionStart",
+
+            "preLaunchTask": "efinix: Co-debug Register" 
+        }
+    ]
+}
+
+// vim:ft=jsonc
+

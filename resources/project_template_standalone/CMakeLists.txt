@@ -30,20 +30,15 @@ endforeach()
 target_link_options(${PROJECT_NAME} PRIVATE "-T${LINKER_SCRIPT}" "-nostartfiles")
 
 # ---------------------------------------------------------------------------
-# Debug / flash helper targets
-#
-# These are excluded from the default build (no ALL), so a normal
-# `cmake --build .` never runs them. Invoke explicitly, e.g.:
+# Debug / flash helper targets for working on the command line
+# Invoke explicitly, e.g.:
 #   cmake --build debug --target openocd
 #   cmake --build debug --target gdb
-#
-# USES_TERMINAL gives the command a real TTY (required under the Ninja
-# generator for interactive/long-lived tools like openocd and gdb).
 # ---------------------------------------------------------------------------
 
 # Machine-specific Efinity tool paths come from a CMake preset (see
-# CMakeUserPresets.json) as cache variables. They are required by the helper
-# targets below; warn rather than fail so a plain build still configures.
+# CMakeUserPresets.json) as cache variables. They are only required by the helper
+# targets below;
 foreach(_efx_var OPENOCD TOOLCHAIN_DIR EFINITY_INSTALL_DIR)
     if(NOT ${_efx_var})
         message(WARNING "${_efx_var} is not set — debug/flash helper targets will "

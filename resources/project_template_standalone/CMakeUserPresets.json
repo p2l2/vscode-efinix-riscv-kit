@@ -1,6 +1,4 @@
 {
-    "//": "Machine-specific Efinity tool paths. Generated on project creation from",
-    "//1": "the extension settings; edit the 'machine' preset to update them.",
     "version": 6,
     "configurePresets": [
         {

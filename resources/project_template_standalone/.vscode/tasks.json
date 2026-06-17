@@ -1,0 +1,29 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "efinix: Co-debug Register",
+            "command": "make co_debug_register",
+            "type": "shell",
+            "args": [],
+            "problemMatcher": [
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
+        },
+ {
+            "label": "efinix: Co-debug Deregister",
+            "command": "make co_debug_deregister",
+            "type": "shell",
+            "args": [],
+            "problemMatcher": [
+            ],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
+        }       
+    ]
+}
