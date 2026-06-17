@@ -1,13 +1,14 @@
 {
-    "//": "Copy this file to CMakeUserPresets.json and adjust the paths in the",
-    "//1": "'machine' preset to match your local Efinity tool installation.",
+    "//": "Machine-specific Efinity tool paths. Generated on project creation from",
+    "//1": "the extension settings; edit the 'machine' preset to update them.",
     "version": 6,
     "configurePresets": [
         {
             "name": "machine",
             "hidden": true,
             "cacheVariables": {
-                "EFINITY_RISCV_INSTALL_DIR": "__EFINITY_RISCV_PATH__",
+                "OPENOCD": "__OPENOCD_PATH__",
+                "TOOLCHAIN_DIR": "__TOOLCHAIN_PATH__",
                 "EFINITY_INSTALL_DIR": "__EFINITY_PATH__"
             }
         },

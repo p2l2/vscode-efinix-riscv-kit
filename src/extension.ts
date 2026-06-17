@@ -8,10 +8,11 @@ import * as utils from './utils';
 import { MultiStepInput, InputStep } from './multiStepInput';
 
 
-function checkPath(p: string | undefined, name: string): boolean {
+// Validates a directory path setting. Returns an error string describing the
+// problem, or null if the path is valid.
+function checkPath(p: string | undefined, name: string): string | null {
 	if (!p) {
-		utils.showError(`Path to ${name} installation must be provided`);
-		return false;
+		return `Path to ${name} installation must be provided`;
 	}
 
 	if (p.startsWith('~')) {
@@ -19,18 +20,16 @@ function checkPath(p: string | undefined, name: string): boolean {
 	}
 
 	if (!path.isAbsolute(p)) {
-		utils.showError(`Path to ${name} installation must be absolute or relative to home directory`);
-		return false;
+		return `Path to ${name} installation must be absolute or relative to home directory`;
 	}
 
 	if (!fs.existsSync(p)) {
-		utils.showError(`Path to ${name} (${p}) installation does not exist`);
-		return false;
+		return `Path to ${name} (${p}) installation does not exist`;
 	}
-	return true;
+	return null;
 }
 
-function checkToolInPath(toolNameOrPath: string, name: string): boolean {
+function checkToolInPath(toolNameOrPath: string, name: string): string | null {
 	// 2. If it's just a command name (e.g., 'git' or 'gcc'), look in system $PATH
 	const pathEnv = process.env.PATH || '';
 	// Windows uses semicolons (;), Posix (Mac/Linux) uses colons (:)
@@ -46,21 +45,19 @@ function checkToolInPath(toolNameOrPath: string, name: string): boolean {
 		for (const ext of extensionsToCheck) {
 			const fullPath = path.join(directory, `${toolNameOrPath}${ext}`);
 			if (fs.existsSync(fullPath)) {
-				return true;
+				return null;
 			}
 		}
 	}
 
-	utils.showError(`Path to tool ${name} must be either an absolute path, or an executable in PATH`);
-
-	return false;
-
+	return `Path to tool ${name} must be either an absolute path, or an executable in PATH`;
 }
 
-function checkTool(p: string | undefined, name: string): boolean {
+// Validates a tool/executable path setting. Returns an error string describing
+// the problem, or null if the tool is valid.
+function checkTool(p: string | undefined, name: string): string | null {
 	if (!p) {
-		utils.showError(`Path to ${name} installation must be provided`);
-		return false;
+		return `Path to ${name} installation must be provided`;
 	}
 
 	if (p.startsWith('~')) {
@@ -72,25 +69,34 @@ function checkTool(p: string | undefined, name: string): boolean {
 	}
 
 	if (!fs.existsSync(p)) {
-		utils.showError(`Path to ${name} installation (${p}) does not exist`);
-		return false;
+		return `Path to ${name} installation (${p}) does not exist`;
 	}
-	return true;
+	return null;
 }
 
-function checkConfig(): boolean {
-	let config = vscode.workspace.getConfiguration("efinixRiscvKit");
-	if (!checkPath(config.get<string>('efinityPath'), "Efinity")) {
-		return false;
-	}
-	if (!checkPath(config.get<string>('efinityToolchainPath'), "Efinity Toolchain")) {
-		return false;
-	}
-	if (!checkTool(config.get<string>('openocdPath'), "Openocd")) {
-		return false;
-	}
+// Collects all configuration problems. An empty array means the configuration
+// is complete and valid.
+function configProblems(): string[] {
+	const config = vscode.workspace.getConfiguration("efinixRiscvKit");
+	const problems = [
+		checkPath(config.get<string>('efinityPath'), "Efinity"),
+		checkPath(config.get<string>('efinityToolchainPath'), "Efinity Toolchain"),
+		checkTool(config.get<string>('openocdPath'), "Openocd"),
+	];
+	return problems.filter((p): p is string => p !== null);
+}
 
-	return true;
+// Shows an actionable error for the given configuration problems, offering a
+// button that opens the VS Code settings GUI filtered to this extension.
+async function promptConfigureSettings(problems: string[]) {
+	const sel = await vscode.window.showErrorMessage(
+		"Efinix RISC-V Kit: Efinity tool paths are not configured. " +
+		"Configure them before creating a project.",
+		{ modal: true, detail: problems.join("\n") },
+		"Open Settings");
+	if (sel === "Open Settings") {
+		await vscode.commands.executeCommand("workbench.action.openSettings", "efinixRiscvKit");
+	}
 }
 
 function validateProjectName(text: string) {
@@ -134,7 +140,16 @@ async function isEfinixBSP(bspPath: vscode.Uri): Promise<boolean> {
 
 interface TemplateSettings {
 	prjName: string,
-	bspPath: string
+	bspPath: string,
+	openocdPath: string,
+	toolchainPath: string,
+	efinityPath: string
+}
+
+// Normalizes a path to forward slashes so it is valid inside the generated
+// JSON presets file and safe to embed in CMake strings on Windows.
+function toCMakePath(p: string): string {
+	return p.replace(/\\/g, "/");
 }
 
 async function copyTemplateFile(template_path: vscode.Uri, target_path: vscode.Uri, settings: TemplateSettings) {
@@ -142,7 +157,10 @@ async function copyTemplateFile(template_path: vscode.Uri, target_path: vscode.U
 	const replacement_map = new Map(
 		[
 			["__PROJECT_NAME__", settings.prjName],
-			["__BSP_DIR__", settings.bspPath],
+			["__BSP_DIR__", toCMakePath(settings.bspPath)],
+			["__OPENOCD_PATH__", toCMakePath(settings.openocdPath)],
+			["__TOOLCHAIN_PATH__", toCMakePath(settings.toolchainPath)],
+			["__EFINITY_PATH__", toCMakePath(settings.efinityPath)],
 
 		]
 	);
@@ -154,7 +172,7 @@ async function copyTemplateFile(template_path: vscode.Uri, target_path: vscode.U
 	let content_str = orig_content;
 
 	replacement_map.forEach((value, key, map) => {
-		content_str = content_str.replace(key, value);
+		content_str = content_str.replaceAll(key, value);
 	});
 
 	if (content_str !== orig_content) {
@@ -347,7 +365,14 @@ async function createProject(template_path: vscode.Uri) {
 
 	// All prompts succeeded. Copy template and replace placeholders
 	const relative_bsp = path.relative(realPrjPath.fsPath, realBspPath.fsPath);
-	await copyTemplate(template_path, realPrjPath, { prjName: config.name, bspPath: relative_bsp });
+	const extConfig = vscode.workspace.getConfiguration("efinixRiscvKit");
+	await copyTemplate(template_path, realPrjPath, {
+		prjName: config.name,
+		bspPath: relative_bsp,
+		openocdPath: extConfig.get<string>('openocdPath') ?? "",
+		toolchainPath: extConfig.get<string>('efinityToolchainPath') ?? "",
+		efinityPath: extConfig.get<string>('efinityPath') ?? "",
+	});
 
 	if (!isFolderOpenAnywhere(realPrjPath)) {
 		const shouldOpenFolder = await vscode.window.showInformationMessage("Open the project folder in this workspace?", { modal: true }, "Yes", "No");
@@ -380,17 +405,18 @@ export function activate(context: vscode.ExtensionContext) {
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
 	const validateCmd = vscode.commands.registerCommand('efinix-vscode-ext.validate', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		if (checkConfig()) {
-			utils.showInfo("Efinix RISC-V Kit: Configuration complete!");
+		const problems = configProblems();
+		if (problems.length === 0) {
+			utils.showInfo("Configuration complete!");
+		} else {
+			promptConfigureSettings(problems);
 		}
 	});
 	const templateCmd = vscode.commands.registerCommand('efinix-vscode-ext.createStandaloneProject', async () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		if (!checkConfig()) {
-			utils.showError("Errors encountered in Configuration. Project cannot be created!");
+		const problems = configProblems();
+		if (problems.length > 0) {
+			await promptConfigureSettings(problems);
+			return;
 		}
 
 		await createProject(vscode.Uri.joinPath(context.extensionUri, "resources", "project_template_standalone"));

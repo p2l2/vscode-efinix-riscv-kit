@@ -1,18 +1,18 @@
 # RISC-V cross-compilation toolchain for Efinix Sapphire SoC bare-metal firmware.
 #
-# The compiler is located from EFINITY_RISCV_INSTALL_DIR (supplied via a CMake
-# preset / cache variable, see CMakeUserPresets.json). If that is not set, fall
-# back to searching the environment for a toolchain on the legacy path.
+# The compiler is located from TOOLCHAIN_DIR (supplied via a CMake preset /
+# cache variable, see CMakeUserPresets.json). If that is not set, fall back to
+# searching the environment for a toolchain on the legacy path.
 
 set(RISCV_GCC_COMPILER "")
 
-# Forward the install dir into try_compile sub-projects, which re-run this
+# Forward the toolchain dir into try_compile sub-projects, which re-run this
 # toolchain file in a fresh scope without the preset's cache variables.
-list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES EFINITY_RISCV_INSTALL_DIR)
+list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES TOOLCHAIN_DIR)
 
-# Preferred: full path from the configured Efinity RISC-V IDE install.
-if(EFINITY_RISCV_INSTALL_DIR AND EXISTS "${EFINITY_RISCV_INSTALL_DIR}/toolchain/bin/riscv-none-elf-gcc")
-    set(RISCV_GCC_COMPILER "${EFINITY_RISCV_INSTALL_DIR}/toolchain/bin/riscv-none-elf-gcc")
+# Preferred: full path from the configured Efinity RISC-V toolchain.
+if(TOOLCHAIN_DIR AND EXISTS "${TOOLCHAIN_DIR}/bin/riscv-none-elf-gcc")
+    set(RISCV_GCC_COMPILER "${TOOLCHAIN_DIR}/bin/riscv-none-elf-gcc")
 endif()
 
 # Fallback: search the environment (legacy behaviour, requires the toolchain
@@ -37,7 +37,7 @@ if(NOT RISCV_GCC_COMPILER)
     elseif (EXISTS ${RISCV_XPACK_GCC_COMPILER_EXE})
         set( RISCV_GCC_COMPILER ${RISCV_XPACK_GCC_COMPILER_EXE})
     else()
-        message(FATAL_ERROR "RISC-V GCC not found. Set EFINITY_RISCV_INSTALL_DIR "
+        message(FATAL_ERROR "RISC-V GCC not found. Set TOOLCHAIN_DIR "
             "in CMakeUserPresets.json, or put the toolchain on the environment.")
     endif()
 endif()

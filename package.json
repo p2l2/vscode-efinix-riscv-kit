@@ -35,7 +35,7 @@
         "efinixRiscvKit.efinityPath": {
           "type": "string",
           "default": "",
-          "description": "Path to the installation directory of the Efinity IDE. Must be configured",
+          "description": "Path to the installation directory of the Efinity IDE (the directory containing 'debugger/'). Used as EFINITY_INSTALL_DIR in the generated CMakeUserPresets.json. Must be configured",
           "editPresentation": "singlelineText",
           "properties": {
             "format": "file-system-path"
@@ -44,13 +44,13 @@
         "efinixRiscvKit.efinityToolchainPath": {
           "type": "string",
           "default": "",
-          "description": "Path to the compiler toolchain used for efinity. Must be configured",
+          "description": "Path to the RISC-V toolchain root (the directory containing 'bin/riscv-none-elf-gcc'). Used as TOOLCHAIN_DIR in the generated CMakeUserPresets.json. Must be configured",
           "format": "file-system-path"
         },
         "efinixRiscvKit.openocdPath": {
           "type": "string",
           "default": "openocd",
-          "description": "Path to the openocd executable to be used. Defaults to openocd on the path"
+          "description": "Path to the openocd executable. May be an absolute path or a name resolved on PATH. Used as OPENOCD in the generated CMakeUserPresets.json"
         }
       }
     }
