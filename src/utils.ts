@@ -17,6 +17,15 @@ export async function uriExists(uri: vscode.Uri): Promise<boolean> {
 	}
 }
 
+export async function isDirectory(uri: vscode.Uri): Promise<boolean> {
+	try {
+		const stats = await vscode.workspace.fs.stat(uri);
+		return stats.type === vscode.FileType.Directory;
+	} catch {
+		return false;
+	}
+}
+
 export async function isEmptyDir(uri: vscode.Uri): Promise<boolean> {
 	try {
 		const stats = await vscode.workspace.fs.stat(uri);

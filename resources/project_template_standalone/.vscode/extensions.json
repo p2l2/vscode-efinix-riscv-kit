@@ -1,5 +1,6 @@
 {
     "recommendations": [
-        "p2l2.efinix-riscv-kit"
+        "p2l2.efinix-riscv-kit",
+        "llvm-vs-code-extensions.vscode-clangd"
     ]
 }
