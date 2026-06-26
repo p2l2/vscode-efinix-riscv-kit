@@ -18,6 +18,13 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${EFX_BSP}/software/standalone/driver/
 )
 
+# # Enable multi-core
+# # Uncomment to enable multi-core support
+# target_compile_definitions(${PROJECT_NAME} PUBLIC SMP)
+# target_sources(${PROJECT_NAME} PUBLIC 
+#    ${EFX_BSP}/software/standalone/common/
+# )
+
 # Explicitely add implicit include paths
 # Fixes clangd, as clangd does not correctly find Efinix gcc include paths
 foreach(dir IN LISTS CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES)
@@ -28,6 +35,20 @@ foreach(dir IN LISTS CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES)
 endforeach()
 
 target_link_options(${PROJECT_NAME} PRIVATE "-T${LINKER_SCRIPT}" "-nostartfiles")
+
+
+# Build .bin and .hex files required for some Efinix workflows
+add_custom_command(
+    TARGET ${PROJECT_NAME}
+    POST_BUILD
+    COMMAND "${CMAKE_OBJCOPY}" ARGS -O binary "${PROJECT_NAME}" "${PROJECT_NAME}.bin"
+)
+
+add_custom_command(
+    TARGET ${PROJECT_NAME}
+    POST_BUILD
+    COMMAND "${CMAKE_OBJCOPY}" -O ihex "${PROJECT_NAME}" "${PROJECT_NAME}.hex"
+)
 
 # ---------------------------------------------------------------------------
 # Debug / flash helper targets for working on the command line
