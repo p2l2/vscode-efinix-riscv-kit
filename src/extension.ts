@@ -142,6 +142,26 @@ async function isEfinixBSP(bspPath: vscode.Uri): Promise<boolean> {
 	return entries.some(([name, type]) => type === vscode.FileType.File && name.endsWith(".cfg"));
 }
 
+// If `selected` is not itself a BSP but sits inside one, returns the enclosing
+// BSP root; otherwise undefined. Walks up to `maxLevels` parents so a user who
+// picked a subfolder one or two levels too deep can be redirected. The deepest
+// marker path (bsp/efinix/EfxSapphireSoc/include) is 4 segments, so 4 levels
+// covers every realistic mis-selection.
+async function findEnclosingBspRoot(selected: vscode.Uri, maxLevels = 4): Promise<vscode.Uri | undefined> {
+	let current = selected;
+	for (let i = 0; i < maxLevels; i++) {
+		const parent = vscode.Uri.joinPath(current, "..");
+		if (parent.fsPath === current.fsPath) {   // reached filesystem root
+			break;
+		}
+		current = parent;
+		if (await isEfinixBSP(current)) {
+			return current;
+		}
+	}
+	return undefined;
+}
+
 interface TemplateSettings {
 	prjName: string,
 	bspPath: string,
@@ -352,7 +372,12 @@ async function collectProjectConfig(lastBsp?: string): Promise<ProjectConfig | u
 				if (dirError) {
 					return dirError;
 				}
-				if (!await isEfinixBSP(resolvePath(target, wsDir))) {
+				const resolved = resolvePath(target, wsDir);
+				if (!await isEfinixBSP(resolved)) {
+					const root = await findEnclosingBspRoot(resolved);
+					if (root) {
+						return "This is a subfolder of a BSP. Use this path instead: " + root.fsPath;
+					}
 					return "Not a valid Efinix BSP directory";
 				}
 				return undefined;
