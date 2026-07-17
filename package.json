@@ -2,7 +2,7 @@
   "name": "efinix-riscv-kit",
   "displayName": "Efinix RISC-V Devkit",
   "description": "Provides development tools for the RISC-V cores on Efinix FPGAs",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "repository": "https://github.com/p2l2/vscode-efinix-riscv-kit",
   "engines": {
     "vscode": "^1.120.0"
@@ -28,7 +28,7 @@
       },
       {
         "command": "efinix-vscode-ext.createStandaloneProject",
-        "title": "efinixRiscvKit: Create Standalone C++ Project"
+        "title": "efinixRiscvKit: Create Project"
       }
     ],
     "configuration": {
@@ -54,6 +54,14 @@
           "type": "string",
           "default": "openocd",
           "description": "Path to the openocd executable. May be an absolute path or a name resolved on PATH. Used as OPENOCD in the generated CMakeUserPresets.json"
+        },
+        "efinixRiscvKit.customTemplatePaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Directories containing custom project templates. Each entry is either a template directory (containing efinix-template.json) or a folder of such template directories."
         }
       }
     }

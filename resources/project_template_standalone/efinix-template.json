@@ -1,0 +1,8 @@
+{
+    "id": "standalone",
+    "name": "Standalone C++ Project",
+    "description": "Bare-metal C++ for the Efinix Sapphire RISC-V SoC",
+    "requiresBsp": true,
+    "requiresToolPaths": true,
+    "variables": []
+}
