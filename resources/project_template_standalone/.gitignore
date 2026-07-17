@@ -2,3 +2,6 @@ build/
 debug/
 release/
 compile_commands.json
+
+# Machine-specific tool paths; regenerated per-machine from CMakeUserPresets.json.template
+CMakeUserPresets.json

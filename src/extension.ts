@@ -11,6 +11,15 @@ import { MultiStepInput, InputStep } from './multiStepInput';
 // it can be offered as a grayed-out default in future project-creation wizards.
 const LAST_BSP_KEY = "lastBspPath";
 
+// Marker file dropped into every created project so the extension can recognize
+// its own projects on load (see `activate`).
+const MARKER_FILE = ".efinix-riscv-kit";
+// The machine-specific presets (absolute tool paths) — gitignored in generated
+// projects. Alongside it we ship an unsubstituted `.template` so the file can be
+// regenerated per-machine after a clone.
+const USER_PRESETS_FILE = "CMakeUserPresets.json";
+const USER_PRESETS_TEMPLATE_FILE = "CMakeUserPresets.json.template";
+
 
 // Validates a directory path setting. Returns an error string describing the
 // problem, or null if the path is valid.
@@ -176,8 +185,10 @@ function toCMakePath(p: string): string {
 	return p.replace(/\\/g, "/");
 }
 
-async function copyTemplateFile(template_path: vscode.Uri, target_path: vscode.Uri, settings: TemplateSettings) {
-
+// Replaces the template placeholder tokens (__PROJECT_NAME__, __BSP_DIR__, …) in
+// `content` with the concrete values from `settings`. Shared by the project-copy
+// path and the on-load CMakeUserPresets regeneration path.
+function substitutePlaceholders(content: string, settings: TemplateSettings): string {
 	const replacement_map = new Map(
 		[
 			["__PROJECT_NAME__", settings.prjName],
@@ -185,19 +196,20 @@ async function copyTemplateFile(template_path: vscode.Uri, target_path: vscode.U
 			["__OPENOCD_PATH__", toCMakePath(settings.openocdPath)],
 			["__TOOLCHAIN_PATH__", toCMakePath(settings.toolchainPath)],
 			["__EFINITY_PATH__", toCMakePath(settings.efinityPath)],
-
 		]
 	);
 
+	let result = content;
+	replacement_map.forEach((value, key) => {
+		result = result.replaceAll(key, value);
+	});
+	return result;
+}
 
+async function copyTemplateFile(template_path: vscode.Uri, target_path: vscode.Uri, settings: TemplateSettings) {
 	const content = await vscode.workspace.fs.readFile(template_path);
 	const orig_content = new TextDecoder().decode(content);
-	// const orig_content = Buffer.from(content).toString();
-	let content_str = orig_content;
-
-	replacement_map.forEach((value, key, map) => {
-		content_str = content_str.replaceAll(key, value);
-	});
+	const content_str = substitutePlaceholders(orig_content, settings);
 
 	if (content_str !== orig_content) {
 		const encoded = new TextEncoder().encode(content_str);
@@ -257,11 +269,31 @@ const browseButton: vscode.QuickInputButton = {
 	tooltip: "Browse…"
 };
 
-async function pickFolder(openLabel: string): Promise<string | undefined> {
+// Walks up from `p` until it finds a directory that actually exists, so a
+// partially-typed or not-yet-created path still gives the folder picker a
+// sensible starting point instead of falling back to the cwd. Returns undefined
+// if nothing along the chain exists.
+async function nearestExistingDir(p: string): Promise<string | undefined> {
+	let current = path.resolve(p);
+	for (;;) {
+		if (await utils.isDirectory(vscode.Uri.file(current))) {
+			return current;
+		}
+		const parent = path.dirname(current);
+		if (parent === current) {   // reached filesystem root
+			return undefined;
+		}
+		current = parent;
+	}
+}
+
+async function pickFolder(openLabel: string, startPath?: string): Promise<string | undefined> {
+	const existing = startPath ? await nearestExistingDir(startPath) : undefined;
 	const picked = await vscode.window.showOpenDialog({
 		canSelectFiles: false,
 		canSelectFolders: true,
 		canSelectMany: false,
+		defaultUri: existing ? vscode.Uri.file(existing) : undefined,
 		openLabel
 	});
 	return picked && picked.length > 0 ? picked[0].fsPath : undefined;
@@ -362,7 +394,9 @@ async function collectProjectConfig(lastBsp?: string): Promise<ProjectConfig | u
 			value.trim().length === 0 && lastBsp ? lastBsp : value;
 		const value = await input.showInputBox({
 			title, step: 4, totalSteps,
-			value: state.bspPath ? state.bspPath.fsPath : '',
+			// Pre-fill the last-used BSP as a real, editable value (not just a
+			// grayed-out placeholder) so a returning user can accept or tweak it.
+			value: state.bspPath?.fsPath ?? lastBsp ?? '',
 			prompt: "Efinix BSP directory",
 			placeholder: lastBsp ?? "/path/to/efinix/bsp",
 			buttons: [browseButton],
@@ -382,7 +416,8 @@ async function collectProjectConfig(lastBsp?: string): Promise<ProjectConfig | u
 				}
 				return undefined;
 			},
-			onButton: async () => pickFolder("Select Efinix BSP Directory"),
+			onButton: async (_button, currentValue) =>
+				pickFolder("Select Efinix BSP Directory", currentValue || lastBsp),
 		});
 		state.bspPath = resolvePath(resolveBsp(value), wsDir);
 	};
@@ -400,7 +435,27 @@ async function collectProjectConfig(lastBsp?: string): Promise<ProjectConfig | u
 	};
 }
 
-async function createProject(template_path: vscode.Uri, store: vscode.Memento) {
+// Writes the project marker file identifying `projectDir` as an Efinix RISC-V Kit
+// project. Committed (not gitignored) so freshly cloned projects are recognized.
+async function writeMarkerFile(projectDir: vscode.Uri, version: string) {
+	const marker = {
+		type: "standalone",
+		createdBy: "efinix-riscv-kit",
+		version,
+	};
+	const encoded = new TextEncoder().encode(JSON.stringify(marker, null, 2) + "\n");
+	await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(projectDir, MARKER_FILE), encoded);
+}
+
+// Drops the bundled user-presets template into the project unmodified (placeholders
+// intact). Each project carrying its own template means later changes to the
+// extension's bundled template can't alter or break existing projects.
+async function copyUserPresetsTemplate(template_path: vscode.Uri, projectDir: vscode.Uri) {
+	const raw = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(template_path, USER_PRESETS_FILE));
+	await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(projectDir, USER_PRESETS_TEMPLATE_FILE), raw);
+}
+
+async function createProject(template_path: vscode.Uri, store: vscode.Memento, version: string) {
 	const lastBsp = store.get<string>(LAST_BSP_KEY);
 	const config = await collectProjectConfig(lastBsp);
 	if (!config) {
@@ -435,6 +490,13 @@ async function createProject(template_path: vscode.Uri, store: vscode.Memento) {
 		efinityPath: extConfig.get<string>('efinityPath') ?? "",
 	});
 
+	// Ship the unsubstituted user-presets template (for per-machine regeneration)
+	// and the marker file identifying this as an Efinix project. createDirectory is
+	// idempotent and guards against copyTemplate's target not yet existing.
+	await vscode.workspace.fs.createDirectory(realPrjPath);
+	await copyUserPresetsTemplate(template_path, realPrjPath);
+	await writeMarkerFile(realPrjPath, version);
+
 	// Remember the BSP so the next run can offer it as a grayed-out default.
 	await store.update(LAST_BSP_KEY, config.bspPath.fsPath);
 
@@ -457,6 +519,54 @@ async function createProject(template_path: vscode.Uri, store: vscode.Memento) {
 }
 
 
+
+// Scans open folders for Efinix project markers and, for any project missing its
+// machine-local CMakeUserPresets.json, prompts to regenerate it. The source is the
+// project's own CMakeUserPresets.json.template when present (update-safe), else the
+// extension's bundled template.
+async function checkProjectsForMissingUserPresets(context: vscode.ExtensionContext) {
+	const markers = await vscode.workspace.findFiles(`**/${MARKER_FILE}`);
+	for (const marker of markers) {
+		const dir = vscode.Uri.joinPath(marker, '..');
+		const userPresets = vscode.Uri.joinPath(dir, USER_PRESETS_FILE);
+		if (await utils.uriExists(userPresets)) {
+			continue;
+		}
+
+		const name = path.basename(dir.fsPath);
+		const choice = await vscode.window.showInformationMessage(
+			`Efinix project '${name}' is missing ${USER_PRESETS_FILE}. Create it now?`,
+			{ modal: true }, "Create", "Skip");
+		if (choice !== "Create") {
+			continue;
+		}
+
+		// Regeneration only needs the three tool paths, which configProblems validates.
+		const problems = configProblems();
+		if (problems.length > 0) {
+			await promptConfigureSettings(problems);
+			continue;
+		}
+
+		// Prefer the project-local template for update-safety; fall back to bundled.
+		const localTmpl = vscode.Uri.joinPath(dir, USER_PRESETS_TEMPLATE_FILE);
+		const src = await utils.uriExists(localTmpl)
+			? localTmpl
+			: vscode.Uri.joinPath(context.extensionUri, "resources", "project_template_standalone", USER_PRESETS_FILE);
+
+		const extConfig = vscode.workspace.getConfiguration("efinixRiscvKit");
+		const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(src));
+		const out = substitutePlaceholders(content, {
+			prjName: "",
+			bspPath: "",
+			openocdPath: extConfig.get<string>('openocdPath') ?? "",
+			toolchainPath: extConfig.get<string>('efinityToolchainPath') ?? "",
+			efinityPath: extConfig.get<string>('efinityPath') ?? "",
+		});
+		await vscode.workspace.fs.writeFile(userPresets, new TextEncoder().encode(out));
+		utils.showInfo(`Generated ${USER_PRESETS_FILE} for '${name}'.`);
+	}
+}
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -483,11 +593,19 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		await createProject(vscode.Uri.joinPath(context.extensionUri, "resources", "project_template_standalone"), context.globalState);
+		await createProject(
+			vscode.Uri.joinPath(context.extensionUri, "resources", "project_template_standalone"),
+			context.globalState,
+			context.extension.packageJSON.version);
 	});
 
 	context.subscriptions.push(validateCmd);
 	context.subscriptions.push(templateCmd);
+
+	// The extension activates on `workspaceContains:**/.efinix-riscv-kit`; offer to
+	// regenerate CMakeUserPresets.json for any recognized project missing it (e.g.
+	// a freshly cloned project where the machine-local file wasn't committed).
+	void checkProjectsForMissingUserPresets(context);
 }
 
 // This method is called when your extension is deactivated

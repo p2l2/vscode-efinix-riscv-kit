@@ -15,6 +15,9 @@
 
             "serverpath": "${config:efinixRiscvKit.openocdPath}",
             "gdbPath": "${config:efinixRiscvKit.efinityToolchainPath}/bin/riscv-none-elf-gdb",
+            "windows": {
+                "gdbPath": "${config:efinixRiscvKit.efinityToolchainPath}/bin/riscv-none-elf-gdb.exe"
+            },
 
             "numberOfProcessors": 4,
 
@@ -51,6 +54,9 @@
             "gdbTarget": "localhost:3333",
 
             "gdbPath": "${config:efinixRiscvKit.efinityToolchainPath}/bin/riscv-none-elf-gdb",
+            "windows": {
+                "gdbPath": "${config:efinixRiscvKit.efinityToolchainPath}/bin/riscv-none-elf-gdb.exe"
+            },
 
             "runToEntryPoint": "",
             "internalConsoleOptions": "openOnSessionStart",
@@ -78,6 +84,9 @@
             "gdbTarget": "localhost:3333",
 
             "gdbPath": "${config:efinixRiscvKit.efinityToolchainPath}/bin/riscv-none-elf-gdb",
+            "windows": {
+                "gdbPath": "${config:efinixRiscvKit.efinityToolchainPath}/bin/riscv-none-elf-gdb.exe"
+            },
 
             "internalConsoleOptions": "openOnSessionStart",
 

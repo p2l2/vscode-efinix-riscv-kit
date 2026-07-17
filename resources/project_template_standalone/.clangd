@@ -1,7 +1,5 @@
 CompileFlags:
-  QueryDriver:
-    - /opt/efinity-riscv-ide/toolchain/bin/riscv-none-elf-gcc
-    - /opt/efinity-riscv-ide/toolchain/bin/riscv-none-elf-g++
+  CompilationDatabase: "debug/"
 
   Add: [
       "-target", "riscv32-unknown-elf", # Or riscv64-unknown-elf depending on your MCU

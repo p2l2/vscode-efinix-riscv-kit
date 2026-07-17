@@ -10,7 +10,13 @@
             "name": "base",
             "hidden": true,
             "generator": "Unix Makefiles",
-            "toolchainFile": "${sourceDir}/cmake/risc-efinix.cmake"
+            "toolchainFile": "${sourceDir}/cmake/riscv-efinix.cmake",
+            "cacheVariables": {
+                "RISCV_ISA": "rv32imafdc",
+                "RISCV_ABI": "ilp32d",
+                "SMP": true,
+                "EFX_BSP":  "__BSP_DIR__"
+            }
         },
         {
             "name": "debug-base",
@@ -32,3 +38,4 @@
         }
     ]
 }
+
