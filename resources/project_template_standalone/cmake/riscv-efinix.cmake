@@ -4,25 +4,7 @@
 # cache variable, see CMakeUserPresets.json). If that is not set, fall back to
 # searching the environment for a toolchain on the legacy path.
 
-set(RISCV_GCC_COMPILER "")
-
-# Forward the toolchain dir into try_compile sub-projects, which re-run this
-# toolchain file in a fresh scope without the preset's cache variables.
-list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES TOOLCHAIN_DIR)
-list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES TARGET_EFX_RV)
-
-# Preferred: full path from the configured Efinity RISC-V toolchain.
-if(TOOLCHAIN_DIR AND EXISTS "${TOOLCHAIN_DIR}/bin/riscv-none-elf-gcc")
-    set(CROSS_COMPILE "${TOOLCHAIN_DIR}/bin/riscv-none-elf-")
-elseif(TOOLCHAIN_DIR AND EXISTS "${TOOLCHAIN_DIR}/bin/riscv-none-embed-gcc")
-    set(CROSS_COMPILE "${TOOLCHAIN_DIR}/bin/riscv-none-embed-")
-else()
-    message(FATAL_ERROR "Could not find riscv toolchain in ${TOOLCHAIN_DIR}. Check configuration in CMakeUserPresets.json")
-endif()
-
-message( "RISC-V GCC found: ${RISCV_GCC_COMPILER}")
-
-set(CMAKE_SYSTEM_PROCESSOR $RISCV_ISA)
+set(CMAKE_SYSTEM_PROCESSOR ${RISCV_ISA})
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=${CMAKE_SYSTEM_PROCESSOR} -mabi=${RISCV_ABI}" )
 
 set(CMAKE_SYSTEM_NAME Generic)

@@ -2,7 +2,7 @@
   "name": "efinix-riscv-kit",
   "displayName": "Efinix RISC-V Devkit",
   "description": "Provides development tools for the RISC-V cores on Efinix FPGAs",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "repository": "https://github.com/p2l2/vscode-efinix-riscv-kit",
   "engines": {
     "vscode": "^1.120.0"
@@ -39,16 +39,12 @@
           "type": "string",
           "default": "",
           "description": "Path to the installation directory of the Efinity IDE (the directory containing 'debugger/'). Used as EFINITY_INSTALL_DIR in the generated CMakeUserPresets.json. Must be configured",
-          "editPresentation": "singlelineText",
-          "properties": {
-            "format": "file-system-path"
-          }
+          "editPresentation": "singlelineText"
         },
-        "efinixRiscvKit.efinityToolchainPath": {
+        "efinixRiscvKit.crossPrefix": {
           "type": "string",
           "default": "",
-          "description": "Path to the RISC-V toolchain root (the directory containing 'bin/riscv-none-elf-gcc'). Used as TOOLCHAIN_DIR in the generated CMakeUserPresets.json. Must be configured",
-          "format": "file-system-path"
+          "description": "Cross-compile prefix, if compiler not in path then use an absolute path (e.g. /opt/efinity-riscv-ide/toolchain/bin/riscv-none-elf-)"
         },
         "efinixRiscvKit.openocdPath": {
           "type": "string",

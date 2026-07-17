@@ -19,7 +19,7 @@ export const RESERVED_TOKENS = [
 	"PROJECT_NAME",
 	"BSP_DIR",
 	"OPENOCD_PATH",
-	"TOOLCHAIN_PATH",
+	"CROSS_COMPILE",
 	"EFINITY_PATH",
 ] as const;
 
@@ -64,6 +64,39 @@ function expandHome(p: string): string {
 		return path.join(os.homedir(), p.slice(1));
 	}
 	return p;
+}
+
+// Resolves a configured `customTemplatePaths` entry to candidate directory URIs.
+// Absolute paths (after `~` expansion) resolve to themselves. Relative paths —
+// e.g. `./some_template` in a `.code-workspace` or folder settings — resolve
+// against the directory holding the `.code-workspace` file (when one is open) and
+// against each open workspace folder, so a template path checked in alongside the
+// workspace works regardless of where it lives on disk. `Uri.joinPath` normalizes
+// leading `./` and `../` segments.
+function resolveEntry(entry: string): vscode.Uri[] {
+	const expanded = expandHome(entry);
+	if (path.isAbsolute(expanded)) {
+		return [vscode.Uri.file(expanded)];
+	}
+
+	const bases: vscode.Uri[] = [];
+	// The `.code-workspace` file's own directory, if a saved workspace is open.
+	// `workspaceFile` is undefined for single-folder workspaces and uses an
+	// `untitled:` scheme for an unsaved workspace (no on-disk location yet).
+	const workspaceFile = vscode.workspace.workspaceFile;
+	if (workspaceFile && workspaceFile.scheme === "file") {
+		bases.push(vscode.Uri.joinPath(workspaceFile, ".."));
+	}
+	for (const folder of vscode.workspace.workspaceFolders ?? []) {
+		bases.push(folder.uri);
+	}
+
+	if (bases.length === 0) {
+		utils.showError(
+			`Custom template path '${entry}' is relative, but no workspace is open to resolve it against.`);
+		return [];
+	}
+	return bases.map(base => vscode.Uri.joinPath(base, expanded));
 }
 
 // Validates a parsed manifest and turns it into a Template, or returns an error
@@ -180,16 +213,27 @@ export async function discoverTemplates(context: vscode.ExtensionContext): Promi
 
 	const config = vscode.workspace.getConfiguration("efinixRiscvKit");
 	for (const entry of config.get<string[]>("customTemplatePaths") ?? []) {
-		if (!entry || entry.trim().length === 0) {
+		const trimmed = entry?.trim();
+		if (!trimmed) {
 			continue;
 		}
-		for (const template of await templatesAtPath(vscode.Uri.file(expandHome(entry)))) {
-			if (byId.has(template.id)) {
-				utils.showError(
-					`Duplicate template id '${template.id}' at ${template.rootUri.fsPath} ignored.`);
+		const candidates = resolveEntry(trimmed);
+		for (const dir of candidates) {
+			// A relative entry resolved across several workspace folders is expected
+			// to be present in only some of them — skip the misses silently. Single
+			// candidates (absolute paths, or a single-root workspace) still report a
+			// hard "not found" via templatesAtPath.
+			if (candidates.length > 1 && !await utils.isDirectory(dir)) {
 				continue;
 			}
-			byId.set(template.id, template);
+			for (const template of await templatesAtPath(dir)) {
+				if (byId.has(template.id)) {
+					utils.showError(
+						`Duplicate template id '${template.id}' at ${template.rootUri.fsPath} ignored.`);
+					continue;
+				}
+				byId.set(template.id, template);
+			}
 		}
 	}
 

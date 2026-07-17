@@ -94,7 +94,7 @@ function configProblems(): string[] {
 	const config = vscode.workspace.getConfiguration("efinixRiscvKit");
 	const problems = [
 		checkPath(config.get<string>('efinityPath'), "Efinity"),
-		checkPath(config.get<string>('efinityToolchainPath'), "Efinity Toolchain"),
+		checkPath(config.get<string>('crossPrefix') + "gcc", "Cross Compiler"),
 		checkTool(config.get<string>('openocdPath'), "Openocd"),
 	];
 	return problems.filter((p): p is string => p !== null);
@@ -200,7 +200,7 @@ function buildVariableMap(
 	if (template.requiresToolPaths) {
 		const cfg = vscode.workspace.getConfiguration("efinixRiscvKit");
 		vars.set("OPENOCD_PATH", toCMakePath(cfg.get<string>("openocdPath") ?? ""));
-		vars.set("TOOLCHAIN_PATH", toCMakePath(cfg.get<string>("efinityToolchainPath") ?? ""));
+		vars.set("CROSS_COMPILE", toCMakePath(cfg.get<string>("crossPrefix") ?? ""));
 		vars.set("EFINITY_PATH", toCMakePath(cfg.get<string>("efinityPath") ?? ""));
 	}
 	for (const v of template.variables) {
@@ -625,7 +625,7 @@ async function checkProjectsForMissingUserPresets() {
 		const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(localTmpl));
 		const out = substitutePlaceholders(content, new Map([
 			["OPENOCD_PATH", toCMakePath(extConfig.get<string>('openocdPath') ?? "")],
-			["TOOLCHAIN_PATH", toCMakePath(extConfig.get<string>('efinityToolchainPath') ?? "")],
+			["CROSS_COMPILE", toCMakePath(extConfig.get<string>('crossPrefix') ?? "")],
 			["EFINITY_PATH", toCMakePath(extConfig.get<string>('efinityPath') ?? "")],
 		]));
 		await vscode.workspace.fs.writeFile(userPresets, new TextEncoder().encode(out));

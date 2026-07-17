@@ -1,10 +1,10 @@
 
-// Efinix Headers assume you are programming in C and are missing
+// Efinix Headers for rv32 assume you are programming in C and are missing
 // a extern "C" guarded with #ifdef __cplusplus.
 // For correct operation in mixed C/C++ environments, all efinix headers must be included in an extern "C" block.
 extern "C" {
-#include "print.h"
 #include "bsp.h"
+#include "print.h"
 }
 
 extern "C" void trap() {

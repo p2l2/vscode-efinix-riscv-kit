@@ -45,12 +45,12 @@ add_custom_target(gdb_attach
     USES_TERMINAL VERBATIM)
 
 add_custom_target(co_debug_register
-    COMMAND ${JTAG_DAEMON} --register_id MakefileDebug --auto_select
-            --chain_tap "1,tap1,5" --chain_tap "2,tap2,4" --chain_tap "3,tap3,5" --chain_tap "4,tap4,4" --chain_tap "5,tap5,5" --gdb_port 3333 --jtag_khz 3000 --debug
-            --jtag_channel_no 0
+    COMMAND ${JTAG_DAEMON} --register_id  "p2l2.efinixRiscvKit" --auto_select
+            --chain_tap "1,tap1,5" --gdb_port 3333 --jtag_khz 3000 --debug
+            --jtag_channel_no 1
             --cfg_file ${OCD_DIR}/co_debug/co_debug.cfg
     USES_TERMINAL VERBATIM)
  
 add_custom_target(co_debug_deregister
-    COMMAND ${JTAG_DAEMON} --unregister_id MakefileDebug
+    COMMAND ${JTAG_DAEMON} --unregister_id  "p2l2.efinixRiscvKit"
     USES_TERMINAL VERBATIM)

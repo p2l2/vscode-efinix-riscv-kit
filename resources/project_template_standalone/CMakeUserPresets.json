@@ -6,7 +6,7 @@
             "hidden": true,
             "cacheVariables": {
                 "OPENOCD": "__OPENOCD_PATH__",
-                "TOOLCHAIN_DIR": "__TOOLCHAIN_PATH__",
+                "CROSS_COMPILE": "__CROSS_COMPILE__",
                 "EFINITY_INSTALL_DIR": "__EFINITY_PATH__"
             }
         },
