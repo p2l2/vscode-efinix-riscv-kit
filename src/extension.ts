@@ -43,6 +43,20 @@ function checkPath(p: string | undefined, name: string): string | null {
 	return null;
 }
 
+// Executable suffixes to probe when a path names a tool without one. On Windows
+// executables carry a suffix (gcc -> gcc.exe), so a bare path has to be tried
+// against each candidate; POSIX only needs the literal path.
+const executableExtensions = process.platform === 'win32'
+	? ['.exe', '.cmd', '.bat', '']
+	: [''];
+
+// True if `p` resolves to an existing executable, accounting for the platform's
+// executable suffixes (so an absolute path like `.../riscv-none-elf-gcc` matches
+// `.../riscv-none-elf-gcc.exe` on Windows).
+function existsAsExecutable(p: string): boolean {
+	return executableExtensions.some(ext => fs.existsSync(`${p}${ext}`));
+}
+
 function checkToolInPath(toolNameOrPath: string, name: string): string | null {
 	// 2. If it's just a command name (e.g., 'git' or 'gcc'), look in system $PATH
 	const pathEnv = process.env.PATH || '';
@@ -50,17 +64,9 @@ function checkToolInPath(toolNameOrPath: string, name: string): string | null {
 	const pathSeparator = process.platform === 'win32' ? ';' : ':';
 	const directories = pathEnv.split(pathSeparator);
 
-	// Determine extensions to check (Windows handles .exe, .cmd, etc.)
-	const extensionsToCheck = process.platform === 'win32'
-		? ['.exe', '.cmd', '.bat', '']
-		: [''];
-
 	for (const directory of directories) {
-		for (const ext of extensionsToCheck) {
-			const fullPath = path.join(directory, `${toolNameOrPath}${ext}`);
-			if (fs.existsSync(fullPath)) {
-				return null;
-			}
+		if (existsAsExecutable(path.join(directory, toolNameOrPath))) {
+			return null;
 		}
 	}
 
@@ -82,7 +88,7 @@ function checkTool(p: string | undefined, name: string): string | null {
 		return checkToolInPath(p, name);
 	}
 
-	if (!fs.existsSync(p)) {
+	if (!existsAsExecutable(p)) {
 		return `Path to ${name} installation (${p}) does not exist`;
 	}
 	return null;
@@ -94,7 +100,7 @@ function configProblems(): string[] {
 	const config = vscode.workspace.getConfiguration("efinixRiscvKit");
 	const problems = [
 		checkPath(config.get<string>('efinityPath'), "Efinity"),
-		checkPath(config.get<string>('crossPrefix') + "gcc", "Cross Compiler"),
+		checkTool(config.get<string>('crossPrefix') + "gcc", "Cross Compiler"),
 		checkTool(config.get<string>('openocdPath'), "Openocd"),
 	];
 	return problems.filter((p): p is string => p !== null);
@@ -228,9 +234,9 @@ async function copyTemplateFile(template_path: vscode.Uri, target_path: vscode.U
 
 	if (content_str !== orig_content) {
 		const encoded = new TextEncoder().encode(content_str);
-		vscode.workspace.fs.writeFile(target_path, encoded);
+		await vscode.workspace.fs.writeFile(target_path, encoded);
 	} else {
-		vscode.workspace.fs.copy(template_path, target_path);
+		await vscode.workspace.fs.copy(template_path, target_path);
 	}
 
 }
@@ -238,14 +244,14 @@ async function copyTemplateFile(template_path: vscode.Uri, target_path: vscode.U
 
 async function copyTemplateDir(template_path: vscode.Uri, target_path: vscode.Uri, vars: VariableMap) {
 	const children = await vscode.workspace.fs.readDirectory(template_path);
-	vscode.workspace.fs.createDirectory(target_path);
-	children.forEach(item => {
+	await vscode.workspace.fs.createDirectory(target_path);
+	await Promise.all(children.map(item => {
 		// The manifest is template metadata; never copy it into a generated project.
 		if (item[0] === MANIFEST_FILE) {
-			return;
+			return Promise.resolve();
 		}
-		copyTemplate(vscode.Uri.joinPath(template_path, item[0]), vscode.Uri.joinPath(target_path, item[0]), vars);
-	});
+		return copyTemplate(vscode.Uri.joinPath(template_path, item[0]), vscode.Uri.joinPath(target_path, item[0]), vars);
+	}));
 }
 
 async function copyTemplate(template_path: vscode.Uri, target_path: vscode.Uri, vars: VariableMap) {
@@ -265,12 +271,16 @@ async function copyTemplate(template_path: vscode.Uri, target_path: vscode.Uri, 
 
 function isFolderOpenAnywhere(target_folder: vscode.Uri): boolean {
 	const workspaceFolders = vscode.workspace.workspaceFolders;
-	const targetStr = target_folder.toString();
-	const targetStrSlashed = targetStr.endsWith('/') ? targetStr : `${targetStr}/`;
-	return (workspaceFolders !== undefined) && workspaceFolders.some(folder => {
-		const folderStr = folder.toString();
-		const folderStrSlashed = targetStr.endsWith('/') ? folderStr : `${folderStr}/`;
-
+	if (!workspaceFolders) {
+		return false;
+	}
+	// Windows filesystems are case-insensitive, but URI strings compare
+	// case-sensitively, so fold case there before comparing.
+	const fold = (s: string) => process.platform === 'win32' ? s.toLowerCase() : s;
+	const withSlash = (s: string) => s.endsWith('/') ? s : `${s}/`;
+	const targetStrSlashed = withSlash(fold(target_folder.toString()));
+	return workspaceFolders.some(folder => {
+		const folderStrSlashed = withSlash(fold(folder.uri.toString()));
 		return targetStrSlashed === folderStrSlashed || targetStrSlashed.startsWith(folderStrSlashed);
 	});
 }
@@ -570,14 +580,23 @@ async function createProject(template: Template, store: vscode.Memento, version:
 		const shouldOpenFolder = await vscode.window.showInformationMessage("Open the project folder in this workspace?", { modal: true }, "Yes", "No");
 		if (shouldOpenFolder === "Yes") {
 			const workspaceFolders = vscode.workspace.workspaceFolders;
-			if (!workspaceFolders || workspaceFolders.length === 0) {
-				await vscode.commands.executeCommand("vscode.openFolder", realPrjPath);
-			} else {
+			// A multi-root workspace (a .code-workspace file, saved or untitled) can
+			// have zero folders, so folder count alone doesn't tell us whether a
+			// workspace is open. `workspaceFile` does: when it's set we append to the
+			// existing workspace instead of replacing it with a bare folder. Same for
+			// a single-folder window (no workspaceFile but folders present) — appending
+			// converts it to an untitled multi-root workspace rather than clobbering it.
+			const inWorkspace = vscode.workspace.workspaceFile !== undefined;
+			if (inWorkspace || (workspaceFolders && workspaceFolders.length > 0)) {
 				vscode.workspace.updateWorkspaceFolders(
-					workspaceFolders.length,
+					workspaceFolders?.length ?? 0,
 					null,
 					{ uri: realPrjPath }
 				);
+			} else {
+				// Truly empty window (no folder and no workspace file): open the
+				// project as the folder.
+				await vscode.commands.executeCommand("vscode.openFolder", realPrjPath);
 			}
 		}
 	}

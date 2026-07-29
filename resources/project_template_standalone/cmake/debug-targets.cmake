@@ -8,7 +8,7 @@
 # Machine-specific Efinity tool paths come from a CMake preset (see
 # CMakeUserPresets.json) as cache variables. They are only required by the helper
 # targets below;
-foreach(_efx_var OPENOCD TOOLCHAIN_DIR EFINITY_INSTALL_DIR)
+foreach(_efx_var OPENOCD CROSS_COMPILE EFINITY_INSTALL_DIR)
     if(NOT ${_efx_var})
         message(WARNING "${_efx_var} is not set — debug/flash helper targets will "
             "not work. Set it in CMakeUserPresets.json (see README).")
@@ -19,7 +19,7 @@ endforeach()
 # targets run from the build dir, not the source root.
 get_filename_component(EFX_BSP_ABS "${EFX_BSP}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
-set(RISCV_GDB   "${TOOLCHAIN_DIR}/bin/riscv-none-elf-gdb")
+set(RISCV_GDB   "${CROSS_COMPILE}gdb")
 set(JTAG_DAEMON "${EFINITY_INSTALL_DIR}/debugger/bin/jtag_daemon_cmd.sh")
 
 if (EXISTS "${EFX_BSP_ABS}/bsp/efinix/EfxSapphireSocRV64/openocd")
